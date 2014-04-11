@@ -90,6 +90,14 @@ describe("The Telescope Test Framework", function()
 
     end)
 
+	context("assertion messages", function()
+			   it("should return a proper error message", function()
+					 local success, msg = pcall(assert_equal, "a", "b")
+					 assert_false(success)
+					 assert_equal("Assert failed: expected 'a' to be equal to 'b'", msg[1])
+														  end)
+				 end)
+
   end)
 
 end)
