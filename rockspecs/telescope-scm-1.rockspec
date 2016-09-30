@@ -1,7 +1,7 @@
 package = "telescope"
 version = "scm-1"
 source = {
-   url = "git://github.com/norman/telescope.git",
+   url = "git://github.com/jdesgats/telescope.git",
 }
 description = {
    summary = "A test/spec library for Lua.",
