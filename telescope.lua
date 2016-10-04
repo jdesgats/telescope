@@ -165,7 +165,7 @@ local function make_assertion(name, message, func)
       end
       for i = 1, nargs do a[i] = tostring(args[i]) end
       for i = nargs+1, num_vars do a[i] = 'nil' end
-      return (assertion_message_prefix .. message):format(unpack(a))
+      return (assertion_message_prefix .. message):format(table.unpack(a))
     end
   end
 
