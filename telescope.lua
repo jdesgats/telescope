@@ -12,6 +12,7 @@ local compat_env = require 'telescope.compat_env'
 local getfenv = _G.getfenv or compat_env.getfenv
 local setfenv = _G.setfenv or compat_env.setfenv
 
+local unpack = unpack or table.unpack
 
 local _VERSION = "0.6.0"
 
@@ -165,7 +166,7 @@ local function make_assertion(name, message, func)
       end
       for i = 1, nargs do a[i] = tostring(args[i]) end
       for i = nargs+1, num_vars do a[i] = 'nil' end
-      return (assertion_message_prefix .. message):format(table.unpack(a))
+      return (assertion_message_prefix .. message):format(unpack(a))
     end
   end
 
