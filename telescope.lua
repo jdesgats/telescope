@@ -12,6 +12,7 @@ local compat_env = require 'telescope.compat_env'
 local getfenv = _G.getfenv or compat_env.getfenv
 local setfenv = _G.setfenv or compat_env.setfenv
 
+local unpack = unpack or table.unpack
 
 local _VERSION = "0.6.0"
 
