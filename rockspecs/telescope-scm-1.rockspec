@@ -21,6 +21,7 @@ build = {
     lua = {
       "telescope.lua",
       ["telescope.compat_env"] = "telescope/compat_env.lua",
+      ["telescope.cqueues"] = "telescope/cqueues.lua"
     },
     bin = {
       "tsc"
