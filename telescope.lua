@@ -408,7 +408,7 @@ local function load_contexts(target, contexts)
   end
 
   local function test_block(name, func)
-    local test_table = {name = name, parent = current_index, test = func or true}
+    local test_table = {name = name, parent = current_index, test = func or true, after = {}}
     if current_index ~= 0 then
       test_table.context_name = context_table[current_index].name
     else
@@ -505,7 +505,7 @@ local function run(contexts, callbacks, test_filter)
   local test_filter = test_filter or function(a) return a end
 
   -- Setup a new environment suitable for running a new test
-  local function newEnv()
+  local function newEnv(context)
     local env = {}
 
     -- Make sure globals are accessible in the new environment
@@ -517,10 +517,14 @@ local function run(contexts, callbacks, test_filter)
       env[k] = v
     end
 
+    -- Add the "after" blocks acessors
+    local function after_block(func)
+      table.insert(context.after, func)
+    end
+    for _, v in ipairs(after_aliases) do env[v] = after_block end
+
     return env
   end
-
-  local env = newEnv()
 
   local function invoke_callback(name, test)
     if not callbacks then return end
@@ -531,11 +535,12 @@ local function run(contexts, callbacks, test_filter)
     end
   end
 
-  local function invoke_test(func)
+  local function invoke_test(func, env)
     local assertions_invoked = 0
     env.assertion_callback = function()
       assertions_invoked = assertions_invoked + 1
     end
+
     setfenv(func, env)
     local result, message = xpcall(func, debug.traceback)
     if result and assertions_invoked > 0 then
@@ -550,7 +555,7 @@ local function run(contexts, callbacks, test_filter)
   end
 
   for i, v in filter(contexts, function(i, v) return v.test and test_filter(v) end) do
-    env = newEnv()    -- Setup a new environment for this test
+    env = newEnv(contexts[i])    -- Setup a new environment for this test
 
     local ancestors = ancestors(i, contexts)
     local context_name = 'Top level'
@@ -577,7 +582,7 @@ local function run(contexts, callbacks, test_filter)
 
     -- check if it's a function because pending tests will just have "true"
     if type(v.test) == "function" then
-      result.status_code, result.assertions_invoked, result.message = invoke_test(v.test)
+      result.status_code, result.assertions_invoked, result.message = invoke_test(v.test, env)
       invoke_callback(status_names[result.status_code], result)
     else
       result.status_code = status_codes.pending
@@ -586,6 +591,13 @@ local function run(contexts, callbacks, test_filter)
     result.status_label = status_labels[result.status_code]
 
     -- Run all the "after" blocks/functions
+    -- start with the test-local ones
+    for _, cb in ipairs(contexts[i].after) do
+      setfenv(cb, env)
+      cb()
+    end
+
+    -- ancestor after blocks
     table.reverse(ancestors)
     for _, a in ipairs(ancestors) do
       for _, after in ipairs(contexts[a].after) do
