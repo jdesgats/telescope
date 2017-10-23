@@ -1,3 +1,4 @@
+-- vim: ts=2:sw=2
 --- Telescope is a test library for Lua that allows for flexible, declarative
 -- tests. The documentation produced here is intended largely for developers
 -- working on Telescope.  For information on using Telescope, please visit the
@@ -89,6 +90,7 @@ local assertion_message_prefix  = "Assert failed: expected "
 -- <tt><li>assert_empty(a)</tt> - true if a is an empty table</li>
 -- <tt><li>assert_equal(a, b)</tt> - true if a == b</li>
 -- <tt><li>assert_error(f)</tt> - true if function f produces an error</li>
+-- <tt><li>assert_error_msg(f, msg)</tt> - true if function f produces the expected error (msg must be a string)</li>
 -- <tt><li>assert_false(a)</tt> - true if a is false</li>
 -- <tt><li>assert_greater_than(a, b)</tt> - true if a > b</li>
 -- <tt><li>assert_gte(a, b)</tt> - true if a >= b</li>
@@ -235,7 +237,7 @@ end
 make_assertion("blank",        "'%s' to be blank",                         function(a) return a == '' or a == nil end)
 make_assertion("empty",        "'%s' to be an empty table",                function(a) return not next(a) end)
 make_assertion("equal",        "'%s' to be equal to '%s'",                 function(a, b) return a == b end)
-make_assertion("error",        "result to be an error",                    function(f) return not pcall(f) end)
+make_assertion("error",        "result to be an error",                    function(f) return not pcall(f) end) 
 make_assertion("false",        "'%s' to be false",                         function(a) return a == false end)
 make_assertion("greater_than", "'%s' to be greater than '%s'",             function(a, b) return a > b end)
 make_assertion("gte",          "'%s' to be greater than or equal to '%s'", function(a, b) return a >= b end)
@@ -253,6 +255,33 @@ make_assertion("not_error",    "result not to be an error",                funct
 make_assertion("not_match",    "'%s' not to be a match for %s",            function(a, b) return not (tostring(b)):match(a) end)
 make_assertion("not_nil",      "'%s' not to be nil",                       function(a) return a ~= nil end)
 make_assertion("not_type",     "'%s' not to be a %s",                      function(a, b) return type(a) ~= b end)
+
+-- error message check management (a bit hacky, but keeps the make_assert system simple)
+do
+  local msg_got
+  local function formatter(_, f, exp_msg, custom_msg)
+    local prefix = assertion_message_prefix
+    if custom_msg then
+      prefix = prefix .. custom_msg .. ': '
+    end
+
+    return (prefix .. "result to be the error '%s', got '%s'"):format(exp_msg, msg_got)
+  end
+
+  make_assertion("error_msg", formatter, function(f, exp_msg)
+    msg_got = nil
+    local ok, msg = pcall(f)
+    -- the `msg` (if any) also contains the file and line at the beginning
+    if ok then
+      msg_got = "no error"
+      return false
+    elseif msg:sub(-#exp_msg - 2) ~= (": " .. exp_msg) then
+      msg_got = msg
+      return false
+    end
+    return true
+  end)
+end
 
 --- Build a contexts table from the test file or function given in <tt>target</tt>.
 -- If the optional <tt>contexts</tt> table argument is provided, then the
