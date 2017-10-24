@@ -54,11 +54,11 @@ describe("The Telescope Test Framework", function()
       end)
 
       it("can have a 'before' function", function()
-        assert_type(contexts[1].before, "function")
+        assert_type(contexts[1].before[1], "function")
       end)
 
       it("can have an 'after' function", function()
-        assert_type(contexts[1].after, "function")
+        assert_type(contexts[1].after[1], "function")
       end)
 
     end)
