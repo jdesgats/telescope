@@ -112,6 +112,30 @@ describe("The Telescope Test Framework", function()
           assert_true(success)
        end)
 
+       it("deep compares tables with assert_same", function()
+         local success, msg = pcall(assert_same, { foo="bar" }, { foo="bar" })
+         assert_true(success)
+
+         local success, msg = pcall(assert_same, math, math)
+         assert_true(success)
+
+         local success, msg = pcall(assert_same, { foo="bar" }, { foo="baz" })
+         assert_false(success)
+         assert_equal([[on key ["foo"]: expected 'bar', got 'baz']], msg[1])
+
+         local success, msg = pcall(assert_same, { foo="bar" }, { foo="bar", extra=42 })
+         assert_false(success)
+         assert_equal([[on key ["extra"]: unexpected value (42)]], msg[1])
+
+         local success, msg = pcall(assert_same, { foo="bar", missing=true }, { foo="bar" })
+         assert_false(success)
+         assert_equal([[on key ["missing"]: expected a value (true), got nil]], msg[1])
+
+         -- deeply nested
+         local success, msg = pcall(assert_same, { foo = { bar = { baz = {42} } } }, { foo = { bar = { baz = {"fail"} } } })
+         assert_false(success)
+         assert_equal([[on key ["foo"]["bar"]["baz"][1]: expected '42', got 'fail']], msg[1])
+       end)
     end)
 
  end)
