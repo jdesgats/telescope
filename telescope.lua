@@ -98,6 +98,7 @@ local assertion_message_prefix  = "Assert failed: expected "
 -- <tt><li>assert_lte(a, b)</tt> - true if a <= b</li>
 -- <tt><li>assert_match(a, b)</tt> - true if b is a string that matches pattern a</li>
 -- <tt><li>assert_nil(a)</tt> - true if a is nil</li>
+-- <tt><li>assert_same(a)</tt> - true if a and b are the same tables by value (deep compare)</li>
 -- <tt><li>assert_true(a)</tt> - true if a is true</li>
 -- <tt><li>assert_type(a, b)</tt> - true if a is of type b</li>
 -- <tt><li>assert_not_blank(a)</tt>  - true if a is not nil and a is not the empty string</li>
@@ -111,6 +112,7 @@ local assertion_message_prefix  = "Assert failed: expected "
 -- <tt><li>assert_not_lte(a, b)</tt> - true if not (a <= b)</li>
 -- <tt><li>assert_not_match(a, b)</tt> - true if the string b does not match the pattern a</li>
 -- <tt><li>assert_not_nil(a)</tt> - true if a is not nil</li>
+-- <tt><li>assert_not_same(a)</tt> - true if a and b are the not same tables by value (deep compare)</li>
 -- <tt><li>assert_not_true(a)</tt> - true if a is not true</li>
 -- <tt><li>assert_not_type(a, b)</tt> - true if a is not of type b</li>
 -- </ul>
@@ -280,6 +282,97 @@ do
       return false
     end
     return true
+  end)
+end
+
+-- table deep compare (does not deep compare tables when used as keys (yet?)
+-- as it makes meaningful error reporting really hard. For now table keys are
+-- compared by reference only
+-- loosely based on https://stackoverflow.com/a/25976660 (removed the table-as-key logic)
+do
+  local error_buffer -- store error messages between assertion and message formatting
+
+  local function formatter()
+    -- this function is called only for failures
+    return table.concat(error_buffer, '\n')
+  end
+
+  local function table_eq(table1, table2)
+    local avoid_loops = {}
+    local path = {}
+    local errors = {}
+
+    local function push_error(patt, ...)
+      local buf = {} -- will contain the formatted path
+      for i, k in ipairs(path) do
+        -- best effort formatting for function, coroutines, tables, ...
+        buf[i] = string.format(type(k) == "string" and '[%q]' or '[%s]', k)
+      end
+      table.insert(errors, string.format('on key %s: ' .. patt, table.concat(buf), ...))
+    end
+
+    local function recurse(t1, t2)
+      -- compare value types
+      if type(t1) ~= type(t2) or
+         (type(t1) ~= "table" and t1 ~= t2)
+      then
+        return push_error("expected '%s', got '%s'", t1, t2)
+      elseif t1 == t2 then
+        return -- primitive types, or table equal by reference (no need to recurse)
+      end
+
+      -- Now, on two tables.
+      -- First, let's avoid looping forever.
+      if avoid_loops[t1] and avoid_loops[t1] ~= t2 then return push_error("loop mismatch") end
+      avoid_loops[t1] = t2
+
+      -- Copy keys from t2
+      local t2keys = {}
+      local t2tablekeys = {}
+      for k, _ in pairs(t2) do
+        if type(k) == "table" then table.insert(t2tablekeys, k) end
+        t2keys[k] = true
+      end
+
+      -- Let's iterate keys from t1
+      for k1, v1 in pairs(t1) do
+        local v2 = t2[k1]
+        t2keys[k1] = nil
+        table.insert(path, k1)
+        if v2 == nil then
+          -- t1 has a key which t2 doesn't have, put a nicer error message.
+          push_error("expected a value (%s), got nil", v1)
+        else
+          recurse(v1, v2)
+        end
+        table.remove(path)
+      end
+
+      -- unexpected values
+      for k, _ in pairs(t2keys) do
+        table.insert(path, k)
+        push_error("unexpected value (%s)", t2[k])
+        table.remove(path)
+      end
+    end
+
+    recurse(table1, table2)
+    return errors
+  end
+
+  make_assertion("same", formatter, function(t1, t2)
+    local errors = table_eq(t1, t2)
+    if #errors == 0 then
+      error_buffer = nil
+      return true
+    else
+      error_buffer = errors
+      return false
+    end
+  end)
+
+  make_assertion("not_same", "tables to not be the same", function(t1, t2)
+    return #table_eq(t1, t2) > 0
   end)
 end
 
