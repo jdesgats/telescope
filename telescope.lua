@@ -278,7 +278,7 @@ local function load_contexts(target, contexts)
   local context_table = contexts or {}
 
   local function context_block(name, func)
-    table.insert(context_table, {parent = current_index, name = name, context = true})
+    table.insert(context_table, {parent = current_index, name = name, context = true, before={}, after={}})
     local previous_index = current_index
     current_index = #context_table
     func()
@@ -296,11 +296,11 @@ local function load_contexts(target, contexts)
   end
 
   local function before_block(func)
-    context_table[current_index].before = func
+    table.insert(context_table[current_index].before, func)
   end
 
   local function after_block(func)
-    context_table[current_index].after = func
+    table.insert(context_table[current_index].after, func)
   end
 
   for _, v in ipairs(after_aliases)   do env[v] = after_block end
@@ -447,9 +447,9 @@ local function run(contexts, callbacks, test_filter)
     
     -- run all the "before" blocks/functions
     for _, a in ipairs(ancestors) do
-      if contexts[a].before then 
-        setfenv(contexts[a].before, env)
-        contexts[a].before() 
+      for _, before in ipairs(contexts[a].before) do
+        setfenv(before, env)
+        before()
       end
     end
 
@@ -466,9 +466,9 @@ local function run(contexts, callbacks, test_filter)
     -- Run all the "after" blocks/functions
     table.reverse(ancestors)
     for _, a in ipairs(ancestors) do
-      if contexts[a].after then 
-        setfenv(contexts[a].after, env)
-        contexts[a].after() 
+      for _, after in ipairs(contexts[a].after) do
+        setfenv(after, env)
+        after()
       end
     end
 
