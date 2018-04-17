@@ -165,6 +165,8 @@ Options:
           --load=<file>     Load a Lua file before executing command
           --name=<pattern>  Only run tests whose name matches a Lua string pattern
           --shake           Use shake as the front-end for tests
+          --plugin=<module>[,<module>...]
+                            Load plugin(s) before running the tests
 
   Callback options:
     --after=<function>        Run function given after each test
@@ -232,6 +234,11 @@ local function process_args(arg)
   return opts, files
 end
 
+-- expose some accessors for plugins
+package.loaded['telescope.plugin'] = {
+  add_callback = add_callback,
+}
+
 return function(arg)
    local opts, files = process_args(arg)
    if opts["h"] or opts["?"] or opts["help"] or not (next(opts) or next(files)) then
@@ -250,6 +257,15 @@ return function(arg)
 
    -- load a file with custom functionality if desired
    if opts["load"] then dofile(opts["load"]) end
+
+   -- load plugins (unlike `load`, they are required instead of loaded (this
+   -- allow plugins to expose an API as requiring them again in the test file
+   -- will hit the package cache)
+   if opts["plugin"] then
+     for plugin in opts["plugin"]:gmatch("[^,]+") do
+       require(plugin)
+     end
+   end
 
    local test_pattern
    if opts["name"] then
